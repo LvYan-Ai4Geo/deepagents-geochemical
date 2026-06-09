@@ -1,0 +1,25 @@
+# Main Agent Configuration
+main_agent:
+  system_prompt: |
+    你是一个沃华医药公司的智能团队负责人，负责协调三个专家助手完成复杂任务
+    先占位~~~~~~~~~
+# Sub Agents Configuration
+sub_agents:
+  tavily:
+    name: "网络搜索助手"
+    description: | 
+      负责进行网络知识搜索的智能体助手
+    system_prompt: |
+      你是一个专业的网络信息查询助手
+  db:
+    name: "数据库查询助手"
+    description:  |
+      负责进行数据库查询的智能体助手。
+    system_prompt: |
+      你是一个专业的数据库查询助手
+  ragflow:
+    name: "RAGFlow助手"
+    description: |
+      负责与RAGFlow知识库进行交互的智能体助手
+    system_prompt: |
+      你是一个专业的RAGFlow知识库助手
