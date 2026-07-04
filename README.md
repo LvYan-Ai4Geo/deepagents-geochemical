@@ -1,8 +1,6 @@
-# DeepAgents — 多智能体协作研究与报告生成系统
+# 地球化学数据分析助手 (Geochemical Data Analysis Agent)
 
-DeepAgents 是一个基于 **DeepAgents 框架** + **LangChain / LangGraph** 构建的 AI 多智能体协作平台。它通过一个**主智能体（Orchestrator）**统一调度三个专业子智能体（网络搜索、数据库查询、RAGFlow 知识库问答），完成复杂的信息收集、分析、文档生成任务。
-
-系统采用 **FastAPI** 作为后端服务，**Vue 3 + Vite** 作为前端界面，通过 **WebSocket** 实时推送智能体的执行进度与结果。
+基于 **deepagents** 框架构建的地球化学数据分析多智能体系统。主智能体（Orchestrator）协调两个专业子智能体，完成地质样品元素含量数据的查询、统计指标计算与地球化学解释。
 
 ---
 
@@ -10,310 +8,202 @@ DeepAgents 是一个基于 **DeepAgents 框架** + **LangChain / LangGraph** 构
 
 ```
 deep-research-agents/
-├── agent/                          # 智能体核心
+├── agent/                              # 智能体核心
 │   ├── config/
-│   │   └── prompts.py              # 加载 YAML 提示词配置（OmegaConf）
-│   ├── llm.py                      # LLM 模型初始化（LangChain）
-│   ├── main_agent.py               # 主智能体（Orchestrator）协调器
-│   └── subagents/                  # 三个专业子智能体
-│       ├── dataset_subagent.py     # 数据库查询子智能体
-│       ├── network_search_subagent.py  # 网络搜索子智能体
-│       └── ragflow_subagent.py     # RAGFlow 知识库子智能体
+│   │   └── conf.py                     # OmegaConf 加载 prompts.yaml
+│   ├── llm.py                          # LLM 模型初始化
+│   ├── main_agent.py                   # 主智能体（Orchestrator，懒加载 + FilesystemBackend）
+│   └── subagents/
+│       ├── dataset_subagent.py         # 地化数据库查询子智能体（+skills 配置）
+│       └── network_search_subagent.py  # 地化指标查询子智能体（SDK + MCP 工具）
 │
-├── api/                            # FastAPI 后端服务
-│   ├── server.py                   # API 服务入口（路由、WebSocket、文件上传/下载）
-│   ├── monitor.py                  # WebSocket 实时进度推送（单例）
-│   └── context.py                  # 基于 ContextVar 的会话级上下文隔离
+├── api/                                # FastAPI 后端
+│   ├── server.py                       # 路由、WebSocket、文件上传/下载
+│   ├── monitor.py                      # 实时进度推送（单例）
+│   └── context.py                      # ContextVar 会话级上下文隔离
 │
-├── tools/                          # 智能体工具函数
-│   ├── db_tools.py                 # MySQL 数据库操作（查询表、查看数据、执行 SQL）
-│   ├── markdown_tools.py           # Markdown 文档生成工具
-│   ├── pdf_tools.py                # Markdown → PDF 转换工具（基于 Word COM）
-│   ├── ragflow_tools.py            # RAGFlow 助手列表查询与问答工具
-│   ├── tavily_search_tool.py       # Tavily 网络搜索工具
-│   └── upload_file_read_tool.py    # 用户上传文件读取工具（md/docx/pdf/xlsx）
+├── tools/                              # 智能体工具
+│   ├── db_tools.py                     # MySQL 数据库操作
+│   ├── tavily_search_tool.py           # Tavily SDK 网络搜索
+│   ├── upload_file_read_tool.py        # 上传文件读取（md/docx/pdf/xlsx）
+│   └── mcp_tools.py                    # Tavily MCP 工具加载（langchain-mcp-adapters）
 │
-├── rag_flow/                       # RAGFlow SDK 客户端
-│   ├── ragflow_client.py           # RAGFlow 单例客户端
-│   └── knowledge_demo.py           # （占位文件）
+├── skills/                             # Agent Skills（deepagents 规范）
+│   └── geochemical-data-analysis/
+│       ├── SKILL.md                    # 地化数析技能（YAML frontmatter + 公式）
+│       └── templates/                  # 输出模板（Excel）
 │
-├── utils/                          # 工具函数
-│   ├── path_utils.py               # 路径解析与安全校验
-│   └── word_converter.py           # MD → PDF Word COM 转换器（Windows 仅限）
+├── prompt/
+│   └── prompts.yaml                    # 主智能体 & 子智能体 System Prompt
 │
-├── prompt/                         # 智能体提示词
-│   └── prompts.yaml                # 主智能体 & 子智能体的 System Prompt
+├── utils/
+│   └── path_utils.py                   # 路径解析与安全校验
 │
-├── ui/                             # Vue 3 前端
-│   ├── src/
-│   │   ├── App.vue                 # 主聊天界面（SPA）
-│   │   ├── main.ts                 # Vue 应用入口
-│   │   └── style.css               # 全局样式
-│   ├── index.html                  # 入口 HTML
-│   ├── package.json                # 依赖与脚本
-│   └── vite.config.ts              # Vite 构建配置
+├── output/                             # 运行时输出目录（按 session 隔离，gitignore）
+├── updated/                            # 用户上传文件目录（按 session 隔离，gitignore）
 │
-├── output/                         # 生成的文档输出目录（按 session 隔离）
-├── updated/                        # 用户上传文件目录（按 session 隔离）
-├── tools/exports/                  # SQL 查询结果 CSV 导出目录
-│
-├── .env                            # 环境变量（数据库、LLM、API 密钥）
-├── .python-version                 # Python 3.12
-├── pyproject.toml                  # Python 项目依赖与元数据
-├── requirements.txt                # Python 依赖列表
-└── README.md                       # 本文件
+├── .env                                # 环境变量（密钥）
+├── pyproject.toml                      # Python 依赖（uv 管理）
+├── requirements.txt                    # 依赖列表（同步）
+└── README.md
 ```
 
 ---
 
 ## 技术栈
 
-| 层      | 技术 |
-|----------|------|
-| **前端**   | Vue 3 (Composition API + `<script setup>` + TypeScript) + Vite |
-| **后端**   | Python 3.12 + FastAPI (port 8000) + Uvicorn |
-| **AI 框架** | DeepAgents + LangChain / LangGraph |
-| **LLM**   | DeepSeek (deepseek-v4-flash via langchain-deepseek) |
+| 层 | 技术 |
+|---|---|
+| **AI 框架** | deepagents 0.6.8 + LangChain 1.3 + LangGraph |
+| **LLM** | DeepSeek (deepseek-v4-flash) |
+| **后端** | Python 3.12 + FastAPI + Uvicorn |
 | **数据库** | MySQL (mysql-connector-python) |
-| **知识库** | RAGFlow (ragflow-sdk) |
-| **网络搜索** | Tavily (tavily-python) |
+| **网络搜索** | Tavily SDK + Tavily MCP (langchain-mcp-adapters) |
+| **Skills** | deepagents SkillsMiddleware + FilesystemBackend |
 | **实时通信** | WebSocket |
-| **文档生成** | Markdown + PDF（通过 Microsoft Word COM 转换，Windows 仅限） |
 
 ---
 
-## 功能特性
+## 智能体协作流程
 
-### 🤖 多智能体协作
-- **主智能体（Orchestrator）**：作为"团队负责人"，接收用户问题，规划执行步骤，协调三个子智能体
-- **网络搜索助手**：使用 Tavily API 搜索互联网公开信息，支持 general / news / finance 三种主题
-- **数据库查询助手**：连接 MySQL 数据库，可列出表名、预览表数据、执行自定义 SQL 查询
-- **RAGFlow 助手**：查询企业 RAGFlow 知识库，向指定助手提问获取内部知识
+```
+用户输入地化数据分析需求
+        │
+        ▼
+┌───────────────────────────────────┐
+│     主智能体（Orchestrator）        │
+│  - 解析地化数据分析需求             │
+│  - 协调两个子智能体                │
+│  - 整合结果返回文本                 │
+└──────┬──────────────────┬─────────┘
+       │                  │
+       ▼                  ▼
+┌──────────────┐  ┌──────────────────┐
+│ 地化指标查询  │  │  地化数据库查询    │
+│   助手       │  │    助手           │
+│ (网络搜索)   │  │  (数据库+Skill)   │
+│              │  │                  │
+│ Tavily SDK   │  │ MySQL 查询       │
+│ Tavily MCP   │  │ 文件读取         │
+│              │  │ 地化数析 Skill   │
+│ 查询公式/标准 │  │ 计算统计指标     │
+└──────────────┘  └──────────────────┘
+        │                  │
+        └────────┬─────────┘
+                 ▼
+        文本结果返回前端
+       (Markdown 表格 + 地质解释)
+```
 
-### 📄 文档自动生成
-- 支持生成 **Markdown (.md)** 文档
-- 支持 Markdown → **PDF** 格式转换（基于 Word COM 自动化）
-- **严格的执行顺序**：先收集信息，再生成文档，避免内容空洞
+### 两个子智能体
 
-### 🔌 文件上传与下载
-- 支持上传 **.md / .docx / .pdf / .xlsx** 等多种格式文件供智能体读取
-- 支持下载生成的文件，浏览器自动触发
+#### 1. 地化数据库查询助手（dataset_subagent）
+- **工具**：`list_tables_name` / `get_table_data` / `execute_sql_query` / `read_file_content`
+- **Skills**：加载 `geochemical-data-analysis` 技能，严格遵循标准公式计算：
+  - 基础统计：N、算术均值、方差/标准差、极值、四分位数（Q1/Q2/Q3）
+  - 离散特征：变异系数 CV、几何标准差 GSD
+  - 富集评价：富集系数 EF（默认参考元素 Al，背景基准 UCC）
+- **数据来源**：MySQL 数据库 或 用户上传的 Excel/CSV 文件
 
-### 💬 实时交互
-- **WebSocket** 实时推送智能体执行进度（工具调用、子智能体调用、任务完成等）
-- 前端展示思考过程日志（可折叠），支持 Markdown 渲染
-
-### 🔒 会话隔离
-- 每个会话（thread_id）有独立的**工作目录、上传目录、WebSocket 连接**
-- 基于 Python `ContextVar` 实现线程安全的上下文传递
+#### 2. 地化指标查询助手（network_search_subagent）
+- **工具**：`tavily_search`（SDK）+ Tavily MCP 工具（异步加载，容错降级）
+- **职责**：检索地化指标计算公式、背景值标准（UCC/PAAS）、参考元素选择原则，确保数据库助手的指标计算不出错
 
 ---
 
-## 环境要求
+## 关键设计
 
-| 依赖 | 版本 |
-|----------|-------|
-| Python | **3.12.3** |
-| Node.js | ≥ 18.x |
-| npm | ≥ 9.x |
-| MySQL | ≥ 8.0（可选，取决于你的数据库需求） |
-| Microsoft Word | 仅 PDF 转换需要（Windows） |
+### Skills 加载
+- `dataset_subagent` 通过 `skills: ['skills']` 配置，`SkillsMiddleware` 从 `FilesystemBackend` 扫描 `skills/` 下的子目录
+- 每个 skill 目录须包含 `SKILL.md`（全大写）+ YAML frontmatter（`name`、`description` 必填，name 须与目录名一致且仅含小写字母与连字符）
+- 主智能体使用 `FilesystemBackend(root_dir=项目根目录)` 作为 backend
+
+### MCP 集成
+
+- `tools/mcp_tools.py` 通过 `MultiServerMCPClient` 以 stdio 启动 `npx -y tavily-mcp@latest`
+- **容错策略**：node/npx 不可用或 MCP 启动失败时，返回空列表，网络搜索 subagent 退回到 SDK 工具，不阻断服务
+- MCP 工具在应用启动时通过 `build_internet_search_subagent()` 异步加载
+
+### 主智能体懒加载
+- 因 MCP 工具需异步加载，`main_agent` 改为 `get_main_agent()` 异步工厂单例
+- 首次调用时加载 MCP 工具并构建 agent，后续复用
 
 ---
 
 ## 快速开始
 
-### 1. 克隆项目
+### 1. 环境配置
 
-```bash
-git clone <repository-url>
-cd deep-research-agents
-```
-
-### 2. 环境变量配置
-
-复制并编辑 `.env` 文件，填写必要的 API 密钥和数据库配置：
-
+编辑 `.env`：
 ```env
-# ——— LLM 配置 ———
+# LLM
 MODEL=deepseek-v4-flash
 MODEL_PROVIDER=deepseek
-BASE_URL=https://api.deepseek.com
-DEEPSEEK_API_KEY=sk-your-deepseek-api-key
+DEEPSEEK_API_KEY=sk-your-key
 
-# ——— Tavily 搜索 ———
-TAVILY_API_KEY=tvly-your-tavily-api-key
+# Tavily（SDK + MCP 共用）
+TAVILY_API_KEY=tvly-your-key
 
-# ——— RAGFlow 知识库 ———
-RAGFLOW_API_URL=http://your-ragflow-server
-RAGFLOW_API_KEY=ragflow-your-api-key
-
-# ——— MySQL 数据库 ———
+# MySQL
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_USER=root
 MYSQL_PASSWORD=your-password
-MYSQL_DATABASE=your-database
+MYSQL_DATABASE=地化数据
 ```
 
-> **注意**：`TAVILY_API_KEY` 在代码中读取的是 `TWITTER_API_KEY` 环境变量名（tools/tavily_search_tool.py 第 14 行）。请确保 `.env` 中配置的是 `TWITTER_API_KEY` 或修改代码中的变量名。
-
-### 3. 启动后端（FastAPI）
+### 2. 安装依赖
 
 ```bash
-# 推荐使用虚拟环境
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+uv sync
+```
 
-# 安装依赖
-pip install -r requirements.txt
+> MCP 需要 Node.js / npx 环境。若未安装，网络搜索将退回到 SDK 工具。
 
-# 启动服务（热重载）
+### 3. 启动后端
+
+```bash
 python -m api.server
 ```
 
-后端服务默认启动在 **http://localhost:8000**，Uvicorn 开启 `reload` 模式，代码修改后自动重启。
-
-### 4. 启动前端（Vue + Vite）
-
-```bash
-cd ui
-
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm run dev
-```
-
-前端开发服务器默认启动在 **http://localhost:5173**，支持 HMR 热更新。
-
-### 5. 生产构建
-
-```bash
-cd ui
-npm run build       # TypeScript 类型检查 + Vite 构建
-npm run preview     # 预览构建产物（默认 http://localhost:4173）
-```
+服务启动在 http://localhost:8000
 
 ---
 
 ## API 接口
 
 | 方法 | 路径 | 说明 |
-|--------|------|-------------|
-| POST | `/api/task` | 提交任务请求，返回 `thread_id`，异步执行 |
-| POST | `/api/upload` | 上传文件（支持多文件），关联到指定会话 |
-| GET | `/api/files?path=...` | 查询指定目录下生成的文件列表 |
-| GET | `/api/download?path=...` | 下载指定文件（仅限 output 目录） |
-| WS | `/ws/{thread_id}` | WebSocket 实时推送智能体执行进度 |
+|---|---|---|
+| POST | `/api/task` | 提交地化分析任务 |
+| POST | `/api/upload` | 上传地化数据文件（Excel/CSV） |
+| GET | `/api/files?path=...` | 查询输出文件列表 |
+| GET | `/api/download?path=...` | 下载文件 |
+| WS | `/ws/{thread_id}` | 实时推送执行进度 |
 
-### 任务请求示例
+---
 
+## 使用示例
+
+**任务请求**：
 ```json
 POST /api/task
 {
-  "query": "查询数据库中商品销量数据，并生成一份分析报告",
-  "thread_id": "optional-custom-id"
+  "query": "查询数据库中 Cu、Pb、Zn 元素含量数据，计算 CV、GSD、EF 指标并给出地质解释"
 }
 ```
 
-### WebSocket 消息格式
-
-后端通过 WebSocket 推送如下事件：
-
-```json
-// 会话创建
-{ "type": "monitor_event", "event": "session_created", "data": { "path": "..." } }
-
-// 工具调用开始
-{ "type": "monitor_event", "event": "tool_start", "data": { "tool_name": "...", "args": {...} } }
-
-// 子智能体调用
-{ "type": "monitor_event", "event": "assistant_call", "data": { "assistant_name": "...", "args": {...} } }
-
-// 任务结果
-{ "type": "monitor_event", "event": "task_result", "data": { "result": "..." } }
-
-// 错误
-{ "type": "monitor_event", "event": "error", "message": "..." }
+**上传数据文件**：
+```bash
+curl -X POST http://localhost:8000/api/upload \
+  -F "files=@地化数据.xlsx" \
+  -F "thread_id=session-001"
 ```
-
----
-
-## 智能体工作流程
-
-```
-用户输入问题
-    │
-    ▼
-┌─────────────────────────────────────┐
-│        主智能体（Orchestrator）        │
-│  - 解析用户需求                      │
-│  - 规划执行步骤                      │
-│  - 协调子智能体                      │
-│  - 生成文档（Markdown/PDF）          │
-└──────┬──────────┬──────────┬────────┘
-       │          │          │
-       ▼          ▼          ▼
-┌──────────┐ ┌──────────┐ ┌──────────┐
-│ 网络搜索  │ │ 数据库查询 │ │ RAGFlow  │
-│  助手     │ │  助手     │ │  助手     │
-│          │ │          │ │          │
-│ Tavily   │ │ MySQL    │ │ RAGFlow  │
-│ 搜索     │ │ SQL 查询  │ │ 知识库问答│
-└──────────┘ └──────────┘ └──────────┘
-       │          │          │
-       └──────────┼──────────┘
-                  ▼
-          ┌──────────────┐
-          │  文档生成工具   │
-          │ Markdown / PDF│
-          └──────────────┘
-                  ▼
-            输出到 session 目录
-            并通过 WebSocket 推送给前端
-```
-
-**执行顺序约束**：
-1. 必须先调用子智能体收集信息（网络搜索 / 数据库 / RAGFlow）
-2. **不允许**在未获取信息前调用文件生成工具
-3. 生成 PDF 时，需先生成 Markdown，再转换为 PDF
-4. 所有文件操作限制在会话工作目录内，防止路径越权
-
----
-
-## 项目依赖
-
-### Python（核心）
-| 包 | 用途 |
-|-----|---------|
-| `deepagents` | 多智能体框架 |
-| `fastapi` + `uvicorn` | Web 服务 |
-| `langchain` / `langchain-deepseek` | LLM 集成 |
-| `mysql-connector-python` | MySQL 数据库连接 |
-| `ragflow-sdk` | RAGFlow 知识库 SDK |
-| `tavily-python` | Tavily 网络搜索 |
-| `openpyxl` / `pandas` / `pypdf` / `python-docx` | 文件读写 |
-| `omegaconf` | YAML 配置加载 |
-| `python-multipart` | 文件上传支持 |
-| `python-dotenv` | 环境变量加载 |
-
-### 前端（Node.js）
-| 包 | 用途 |
-|-----|---------|
-| `vue` | 前端框架 |
-| `vite` | 构建工具 |
-| `axios` | HTTP 请求 |
-| `marked` | Markdown 渲染 |
-| `vue-tsc` / `typescript` | 类型检查 |
 
 ---
 
 ## 注意事项
 
-1. **PDF 转换**：依赖 Microsoft Word COM 自动化，仅在 Windows + 已安装 Word 的环境下可用
-2. **网络搜索**：需要有效的 Tavily API Key，搜索次数受 Tavily 套餐限制
-3. **RAGFlow**：需要部署并配置 RAGFlow 服务端地址和 API Key
-4. **路径安全**：文件下载与列举接口对请求路径做了严格校验，仅允许访问 `output/` 目录下的文件，防止路径遍历攻击
-5. **环境变量名**：Tavily 的 API Key 在代码中读取的是 `TWITTER_API_KEY`（历史遗留），建议在 `.env` 中设置 `TWITTER_API_KEY` 而非 `TAVILY_API_KEY`
+1. **MCP 依赖 Node.js**：Tavily MCP server 通过 `npx` 启动，需本地安装 Node.js。无 Node 环境时自动降级到 SDK。
+2. **Skills 规范**：`SKILL.md` 必须全大写，frontmatter 的 `name` 须与目录名一致且仅含小写字母与连字符。
+3. **文件读取**：上传文件存于 `updated/session_{id}/`，数据库助手通过 `read_file_content(filename="session_{id}/文件名")` 读取。
+4. **路径安全**：文件下载/列举接口限制在 `output/` 目录下，防止路径遍历。

@@ -51,14 +51,14 @@ const scrollToBottom = async () => {
 const fetchFiles = async () => {
   if (!currentSessionPath.value) return
   try {
-    const res = await axios.get('http://localhost:8000/api/files', {
+    const res = await axios.get('/api/files', {
       params: { path: currentSessionPath.value }
     })
     if (res.data.files) {
       fileList.value = res.data.files.map((f: any) => ({
         ...f,
-        // 使用新的下载 API，传入绝对路径
-        url: `http://localhost:8000/api/download?path=${encodeURIComponent(f.path)}`
+        // 使用相对路径下载（经 vite proxy 转发到后端）
+        url: `/api/download?path=${encodeURIComponent(f.path)}`
       }))
     }
   } catch (e) {
@@ -66,9 +66,10 @@ const fetchFiles = async () => {
   }
 }
 
-// WebSocket Connection
+// WebSocket Connection（使用相对路径，经 vite proxy 转发 ws）
 const connectWebSocket = () => {
-  const ws = new WebSocket(`ws://localhost:8000/ws/${currentThreadId.value}`)
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/${currentThreadId.value}`)
 
   ws.onopen = () => {
     console.log('WebSocket Connected')
@@ -101,20 +102,13 @@ const handleSocketMessage = (data: any) => {
   
   if (event === 'session_created') {
     currentSessionPath.value = eventData.path
-    const parts = eventData.path.split(/output[\\/]/)
-    if (parts.length > 1) {
-      currentSessionUrl.value = `http://localhost:8000/outputs/${parts[1].replace(/\\/g, '/')}`
-    }
-    isSidebarOpen.value = true
+    // 重构后主智能体不再生成文件，会话目录仅用于隔离；不自动打开文件侧边栏
+    isSidebarOpen.value = false
     fetchFiles()
   } else if (event === 'tool_start') {
-    // 触发文件列表刷新，以确保用户能看到生成的文件
+    // 重构后无文件生成工具，仅在用户上传文件分析时刷新列表
     if (currentSessionPath.value) {
-      // 延迟一点刷新，因为工具刚开始运行，文件可能还没生成
-      // 但如果是“写入文件”类工具，可能很快就有了
-      // 这里可以尝试立即刷新 + 延迟刷新
       fetchFiles()
-      setTimeout(fetchFiles, 2000)
     }
 
     if (lastAiMsg) {
@@ -236,7 +230,7 @@ const sendMessage = async () => {
             formData.append('files', file)
         })
 
-        await axios.post('http://127.0.0.1:8000/api/upload', formData, {
+        await axios.post('/api/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data'
             }
@@ -275,7 +269,7 @@ const sendMessage = async () => {
       payload.thread_id = currentThreadId.value
     }
     console.log('Sending request payload:', payload)
-    const res = await axios.post('http://127.0.0.1:8000/api/task', payload)
+    const res = await axios.post('/api/task', payload)
     
     if (res.data && res.data.thread_id) {
       currentThreadId.value = res.data.thread_id

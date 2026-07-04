@@ -1,0 +1,17 @@
+﻿class,elem,N,q1_i,q2_i,q3_i
+detrital,Ce,3425,857,1713,2569
+detrital,Dy,3425,857,1713,2569
+detrital,Er,3425,857,1713,2569
+detrital,Eu,3389,848,1695,2542
+hydrothermal,Ce,536,134,268,402
+hydrothermal,Dy,536,134,268,402
+hydrothermal,Er,536,134,268,402
+hydrothermal,Eu,536,134,268,402
+magmatic,Ce,2516,629,1258,1887
+magmatic,Dy,2517,630,1259,1888
+magmatic,Er,2517,630,1259,1888
+magmatic,Eu,2513,629,1257,1885
+metamorphic,Ce,380,95,190,285
+metamorphic,Dy,380,95,190,285
+metamorphic,Er,380,95,190,285
+metamorphic,Eu,380,95,190,285
