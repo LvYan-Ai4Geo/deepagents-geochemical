@@ -11,7 +11,7 @@ from api.monitor import monitor
 load_dotenv(find_dotenv())
 
 # 创建tavily客户端
-Tavily_client = TavilyClient(api_key=os.getenv("TWITTER_API_KEY"))
+Tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
 @tool
 def tavily_search(query: str,
