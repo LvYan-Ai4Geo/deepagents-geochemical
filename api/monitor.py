@@ -55,14 +55,16 @@ class ToolMonitor:
                 # 获取当前线程 ID
                 thread_id = get_thread_context()
 
-                # 确保 loop 已加载
-                manager_loop = self.websocket_manager.get_loop()
+                # 确保 loop 已加载 [fastapi的事件循环]
+                manager_loop = self.websocket_manager.loop
 
                 if manager_loop:
                     if thread_id:
                         # 检查当前是否在同一个事件循环中
                         try:
+                            # 当前的循环事件
                             current_loop = asyncio.get_running_loop()
+                            print(f"对比是不是同一个event_loop:{manager_loop == current_loop}")
                         except RuntimeError:
                             current_loop = None
 
@@ -72,6 +74,9 @@ class ToolMonitor:
                                 self.websocket_manager.send_to_thread(payload, thread_id)
                             )
                         else:
+                            #  FastAPI 的 WebSocket 依赖异步事件循环，且协程必须在创建它的循环中运行：
+                            #  如果当前线程和 WebSocket 管理器在同一个循环（比如在 FastAPI 的接口 / 任务中运行）：直接 create_task 效率最高；
+                            #  如果在不同循环 / 不同线程（比如同步线程调用）：必须用 asyncio.run_coroutine_threadsafe（线程安全的方式），否则会报错 “协程在错误的循环中运行”。
                             # 如果在不同线程，使用 threadsafe 方法
                             asyncio.run_coroutine_threadsafe(
                                 self.websocket_manager.send_to_thread(payload, thread_id),
@@ -123,23 +128,15 @@ class ConnectionManager:
         # 延迟绑定 loop，防止初始化时 loop 不一致
         self.loop = None
 
-    def get_loop(self):
-        """懒加载获取当前运行的事件循环"""
-        if self.loop is None:
-            try:
-                self.loop = asyncio.get_running_loop()
-                # 同时设置 monitor 的 manager (确保双向绑定)
-                monitor.set_websocket_manager(self)
-                print(f"[Monitor] ConnectionManager auto-bound to loop: {id(self.loop)}")
-            except RuntimeError:
-                print("[Monitor] Warning: No running event loop found yet.")
-        return self.loop
+    def set_loop(self, loop):
+        """显式设置事件循环"""
+        self.loop = loop
+        monitor.set_websocket_manager(self)
+        print(f"[Monitor] ConnectionManager manually bound to loop: {id(self.loop)}")
 
     async def connect(self, websocket: WebSocket, thread_id: str):
-        # 每次连接时尝试获取/更新 loop
-        self.get_loop()
-
         await websocket.accept()
+        print(f"存储当前会话id:{thread_id}对应的:{websocket}")
         self.active_connections[thread_id] = websocket
         print(f"Client connected: {thread_id}")
 
