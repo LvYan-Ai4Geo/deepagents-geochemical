@@ -12,7 +12,7 @@ deep-research-agents/
 │   ├── config/
 │   │   └── conf.py                     # OmegaConf 加载 prompts.yaml
 │   ├── llm.py                          # LLM 模型初始化
-│   ├── main_agent.py                   # 主智能体（Orchestrator，懒加载 + FilesystemBackend）
+│   ├── main_agent.py                   # 主智能体（Orchestrator)
 │   └── subagents/
 │       ├── dataset_subagent.py         # 地化数据库查询子智能体（+skills 配置）
 │       └── network_search_subagent.py  # 地化指标查询子智能体（SDK + MCP 工具）
@@ -193,6 +193,7 @@ POST /api/task
 ```
 
 **上传数据文件**：
+
 ```bash
 curl -X POST http://localhost:8000/api/upload \
   -F "files=@地化数据.xlsx" \
